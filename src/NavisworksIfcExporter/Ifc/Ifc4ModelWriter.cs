@@ -7,6 +7,7 @@ using Xbim.IO;
 
 using Xbim.Ifc4.Kernel;
 using Xbim.Ifc4.ProductExtension;
+using Xbim.Ifc4.SharedBldgElements;
 using Xbim.Ifc4.GeometricModelResource;
 using Xbim.Ifc4.GeometryResource;
 using Xbim.Ifc4.GeometricConstraintResource;
