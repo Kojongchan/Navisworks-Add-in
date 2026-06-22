@@ -84,6 +84,14 @@ namespace NavisworksIfcExporter.Geometry
                 double g = Convert.ToDouble(a.GetValue(lb + 1));
                 double b = Convert.ToDouble(a.GetValue(lb + 2));
                 double alpha = a.Length >= 4 ? Convert.ToDouble(a.GetValue(lb + 3)) : 1.0;
+
+                // Many models carry no per-vertex colour and report (0,0,0); their
+                // colour comes from materials instead. Treat near-black as "no
+                // colour" so we fall back to the viewer default instead of forcing
+                // everything black.
+                if (r < 0.02 && g < 0.02 && b < 0.02)
+                    return;
+
                 _color = new[] { r, g, b, alpha };
             }
             catch
