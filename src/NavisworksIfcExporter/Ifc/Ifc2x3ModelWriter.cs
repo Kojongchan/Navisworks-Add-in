@@ -182,8 +182,8 @@ namespace NavisworksIfcExporter.Ifc
                                 c.Green = Clamp01(rgba[1]);
                                 c.Blue = Clamp01(rgba[2]);
                             });
-                            if (rgba.Length >= 4 && rgba[3] < 1.0)
-                                rendering.Transparency = Clamp01(1.0 - rgba[3]);
+                            // Transparency intentionally left unset (opaque). Navisworks
+                            // often reports alpha = 0, which would make everything invisible.
                         }));
                     }));
                 }));
