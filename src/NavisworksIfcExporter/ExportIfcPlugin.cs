@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Reflection;
 using System.Windows.Forms;
 using Autodesk.Navisworks.Api;
 using Autodesk.Navisworks.Api.Plugins;
@@ -23,6 +25,33 @@ namespace NavisworksIfcExporter
         ToolTip = "Export the current model to an IFC file")]
     public class ExportIfcPlugin : AddInPlugin
     {
+        // Navisworks loads the plugin DLL from its folder, but does NOT probe that
+        // folder for the plugin's dependencies (xBIM, etc.). Without this, the
+        // plugin loads (button appears) but throws FileNotFoundException for
+        // 'Xbim.Ifc' at export time. Resolve dependencies from our own folder.
+        static ExportIfcPlugin()
+        {
+            AppDomain.CurrentDomain.AssemblyResolve += OnAssemblyResolve;
+        }
+
+        private static Assembly OnAssemblyResolve(object sender, ResolveEventArgs args)
+        {
+            try
+            {
+                string folder = Path.GetDirectoryName(typeof(ExportIfcPlugin).Assembly.Location);
+                if (string.IsNullOrEmpty(folder))
+                    return null;
+
+                string file = new AssemblyName(args.Name).Name + ".dll";
+                string fullPath = Path.Combine(folder, file);
+                return File.Exists(fullPath) ? Assembly.LoadFrom(fullPath) : null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         public override int Execute(params string[] parameters)
         {
             Document doc = Autodesk.Navisworks.Api.Application.ActiveDocument;
