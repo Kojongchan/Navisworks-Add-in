@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using NavisworksIfcExporter.Model;
 
+using Xbim.Common;
 using Xbim.Common.Step21;
 using Xbim.Ifc;
 using Xbim.IO;
@@ -65,7 +66,7 @@ namespace NavisworksIfcExporter.Ifc
                             e.Representation = BuildShape(model, context, element.Mesh, scale);
                         });
 
-                        contained.RelatedObjects.Add(proxy);
+                        contained.RelatedElements.Add(proxy);
 
                         if (options.ExportProperties)
                             AddProperties(model, proxy, element);

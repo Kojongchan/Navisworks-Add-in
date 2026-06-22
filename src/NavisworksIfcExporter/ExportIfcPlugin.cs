@@ -25,7 +25,7 @@ namespace NavisworksIfcExporter
     {
         public override int Execute(params string[] parameters)
         {
-            Document doc = Application.ActiveDocument;
+            Document doc = Autodesk.Navisworks.Api.Application.ActiveDocument;
             if (doc == null || doc.IsClear)
             {
                 MessageBox.Show("No model is open.", "Export IFC",
@@ -102,7 +102,7 @@ namespace NavisworksIfcExporter
             }
             else
             {
-                foreach (Model model in doc.Models)
+                foreach (Autodesk.Navisworks.Api.Model model in doc.Models)
                     roots.Add(model.RootItem);
             }
 
