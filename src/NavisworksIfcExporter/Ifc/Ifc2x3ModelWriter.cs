@@ -1,0 +1,198 @@
+using System.Collections.Generic;
+using NavisworksIfcExporter.Model;
+
+using Xbim.Common.Step21;
+using Xbim.Ifc;
+using Xbim.IO;
+
+using Xbim.Ifc2x3.Kernel;
+using Xbim.Ifc2x3.ProductExtension;
+using Xbim.Ifc2x3.GeometricModelResource;
+using Xbim.Ifc2x3.TopologyResource;
+using Xbim.Ifc2x3.GeometryResource;
+using Xbim.Ifc2x3.GeometricConstraintResource;
+using Xbim.Ifc2x3.RepresentationResource;
+using Xbim.Ifc2x3.PropertyResource;
+using Xbim.Ifc2x3.MeasureResource;
+
+namespace NavisworksIfcExporter.Ifc
+{
+    /// <summary>
+    /// Writes IFC2x3. IFC2x3 has no tessellation type, so geometry is emitted as an
+    /// IfcFaceBasedSurfaceModel (one triangular IfcFace per mesh triangle). This does
+    /// not require a closed manifold, which suits arbitrary Navisworks meshes.
+    /// Coordinates are written in millimetres.
+    /// </summary>
+    public class Ifc2x3ModelWriter : IIfcModelWriter
+    {
+        public void Write(IReadOnlyList<NavisElement> elements, ExportOptions options)
+        {
+            double scale = options.UnitScaleToMetre * 1000.0;
+            var credentials = IfcEditing.Credentials();
+
+            using (var model = IfcStore.Create(credentials, XbimSchemaVersion.Ifc2X3, XbimStoreType.InMemoryModel))
+            {
+                using (var txn = model.BeginTransaction("Create IFC2x3 model"))
+                {
+                    var project = model.Instances.New<IfcProject>(p => p.Name = options.ProjectName);
+                    project.Initialize(ProjectUnits.SIUnitsUK);
+
+                    var context = GetModelContext(model);
+
+                    var site = model.Instances.New<IfcSite>(s => s.Name = "Default Site");
+                    var building = model.Instances.New<IfcBuilding>(b => b.Name = "Default Building");
+                    var storey = model.Instances.New<IfcBuildingStorey>(s => s.Name = "Default Storey");
+
+                    Aggregate(model, project, site);
+                    Aggregate(model, site, building);
+                    Aggregate(model, building, storey);
+
+                    var contained = model.Instances.New<IfcRelContainedInSpatialStructure>(r =>
+                    {
+                        r.Name = "Building elements";
+                        r.RelatingStructure = storey;
+                    });
+
+                    foreach (var element in elements)
+                    {
+                        if (!element.HasGeometry)
+                            continue;
+
+                        var proxy = model.Instances.New<IfcBuildingElementProxy>(e =>
+                        {
+                            e.Name = element.Name;
+                            e.ObjectPlacement = OriginPlacement(model);
+                            e.Representation = BuildShape(model, context, element.Mesh, scale);
+                        });
+
+                        contained.RelatedObjects.Add(proxy);
+
+                        if (options.ExportProperties)
+                            AddProperties(model, proxy, element);
+                    }
+
+                    txn.Commit();
+                }
+
+                model.SaveAs(options.OutputPath);
+            }
+        }
+
+        private static IfcGeometricRepresentationContext GetModelContext(IfcStore model)
+        {
+            foreach (var ctx in model.Instances.OfType<IfcGeometricRepresentationContext>())
+            {
+                if (ctx.ContextType == "Model")
+                    return ctx;
+            }
+
+            return model.Instances.New<IfcGeometricRepresentationContext>(c =>
+            {
+                c.ContextType = "Model";
+                c.CoordinateSpaceDimension = 3;
+                c.Precision = 1e-5;
+                c.WorldCoordinateSystem = model.Instances.New<IfcAxis2Placement3D>(a =>
+                    a.Location = model.Instances.New<IfcCartesianPoint>(p => p.SetXYZ(0, 0, 0)));
+            });
+        }
+
+        private static IfcProductDefinitionShape BuildShape(
+            IfcStore model, IfcGeometricRepresentationContext context, MeshGeometry mesh, double scale)
+        {
+            int vertexCount = mesh.VertexCount;
+
+            // Shared cartesian points reused across faces.
+            var points = new IfcCartesianPoint[vertexCount];
+            for (int i = 0; i < vertexCount; i++)
+            {
+                int idx = i;
+                points[i] = model.Instances.New<IfcCartesianPoint>(p => p.SetXYZ(
+                    mesh.Coordinates[idx * 3]     * scale,
+                    mesh.Coordinates[idx * 3 + 1] * scale,
+                    mesh.Coordinates[idx * 3 + 2] * scale));
+            }
+
+            var connected = model.Instances.New<IfcConnectedFaceSet>();
+
+            int triCount = mesh.TriangleCount;
+            for (int t = 0; t < triCount; t++)
+            {
+                int a = mesh.TriangleIndices[t * 3];
+                int b = mesh.TriangleIndices[t * 3 + 1];
+                int c = mesh.TriangleIndices[t * 3 + 2];
+
+                var loop = model.Instances.New<IfcPolyLoop>(l =>
+                {
+                    l.Polygon.Add(points[a]);
+                    l.Polygon.Add(points[b]);
+                    l.Polygon.Add(points[c]);
+                });
+
+                var bound = model.Instances.New<IfcFaceOuterBound>(fb =>
+                {
+                    fb.Bound = loop;
+                    fb.Orientation = true;
+                });
+
+                var face = model.Instances.New<IfcFace>(f => f.Bounds.Add(bound));
+                connected.CfsFaces.Add(face);
+            }
+
+            var surfaceModel = model.Instances.New<IfcFaceBasedSurfaceModel>(m => m.FbsmFaces.Add(connected));
+
+            var shapeRep = model.Instances.New<IfcShapeRepresentation>(r =>
+            {
+                r.ContextOfItems = context;
+                r.RepresentationIdentifier = "Body";
+                r.RepresentationType = "SurfaceModel";
+                r.Items.Add(surfaceModel);
+            });
+
+            return model.Instances.New<IfcProductDefinitionShape>(s => s.Representations.Add(shapeRep));
+        }
+
+        private static IfcLocalPlacement OriginPlacement(IfcStore model)
+        {
+            return model.Instances.New<IfcLocalPlacement>(lp =>
+                lp.RelativePlacement = model.Instances.New<IfcAxis2Placement3D>(a =>
+                    a.Location = model.Instances.New<IfcCartesianPoint>(p => p.SetXYZ(0, 0, 0))));
+        }
+
+        private static void Aggregate(IfcStore model, IfcObjectDefinition parent, IfcObjectDefinition child)
+        {
+            model.Instances.New<IfcRelAggregates>(r =>
+            {
+                r.RelatingObject = parent;
+                r.RelatedObjects.Add(child);
+            });
+        }
+
+        private static void AddProperties(IfcStore model, IfcBuildingElementProxy proxy, NavisElement element)
+        {
+            foreach (var category in element.Properties)
+            {
+                if (category.Value.Count == 0)
+                    continue;
+
+                var pset = model.Instances.New<IfcPropertySet>(ps =>
+                {
+                    ps.Name = category.Key;
+                    foreach (var prop in category.Value)
+                    {
+                        ps.HasProperties.Add(model.Instances.New<IfcPropertySingleValue>(p =>
+                        {
+                            p.Name = prop.Key;
+                            p.NominalValue = new IfcText(prop.Value ?? string.Empty);
+                        }));
+                    }
+                });
+
+                model.Instances.New<IfcRelDefinesByProperties>(r =>
+                {
+                    r.RelatingPropertyDefinition = pset;
+                    r.RelatedObjects.Add(proxy);
+                });
+            }
+        }
+    }
+}

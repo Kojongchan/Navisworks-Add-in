@@ -1,0 +1,17 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+.vs/
+
+# NuGet
+packages/
+*.nupkg
+
+# Rider / VS
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store

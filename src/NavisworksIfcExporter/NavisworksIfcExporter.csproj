@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>NavisworksIfcExporter</AssemblyName>
+    <RootNamespace>NavisworksIfcExporter</RootNamespace>
+    <UseWindowsForms>true</UseWindowsForms>
+
+    <!-- Navisworks is 64-bit only -->
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
+
+    <!-- Output a flat folder (no \net48\ subfolder) so the deploy step is simpler -->
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+
+  <!--
+    Set NavisworksDir to your install folder if it differs.
+    You can also pass it on the command line:  msbuild /p:NavisworksDir="C:\..."
+  -->
+  <PropertyGroup>
+    <NavisworksDir Condition="'$(NavisworksDir)' == ''">C:\Program Files\Autodesk\Navisworks Manage 2022</NavisworksDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- xBIM Toolkit: pulls in Xbim.Common + Xbim.Ifc2x3 + Xbim.Ifc4 -->
+    <PackageReference Include="Xbim.Essentials" Version="5.1.341" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Navisworks managed API. CopyLocal=false: these ship with Navisworks. -->
+    <Reference Include="Autodesk.Navisworks.Api">
+      <HintPath>$(NavisworksDir)\Autodesk.Navisworks.Api.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Autodesk.Navisworks.ComApi">
+      <HintPath>$(NavisworksDir)\Autodesk.Navisworks.ComApi.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Autodesk.Navisworks.Interop.ComApi">
+      <HintPath>$(NavisworksDir)\Autodesk.Navisworks.Interop.ComApi.dll</HintPath>
+      <Private>false</Private>
+      <EmbedInteropTypes>false</EmbedInteropTypes>
+    </Reference>
+  </ItemGroup>
+
+</Project>

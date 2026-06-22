@@ -1,0 +1,141 @@
+using System;
+using System.Collections.Generic;
+using System.Windows.Forms;
+using Autodesk.Navisworks.Api;
+using Autodesk.Navisworks.Api.Plugins;
+
+using NavisworksIfcExporter.Geometry;
+using NavisworksIfcExporter.Ifc;
+using NavisworksIfcExporter.Model;
+using NavisworksIfcExporter.Props;
+using NavisworksIfcExporter.Units;
+
+namespace NavisworksIfcExporter
+{
+    /// <summary>
+    /// Add-in entry point. Appears under Tool Add-ins. Exports the current
+    /// selection (or the whole scene if nothing is selected) to an IFC file.
+    /// </summary>
+    [Plugin(
+        "NavisworksIfcExporter.ExportIfc",   // unique plugin id
+        "NWIFC",                              // developer id (4 chars)
+        DisplayName = "Export IFC",
+        ToolTip = "Export the current model to an IFC file")]
+    public class ExportIfcPlugin : AddInPlugin
+    {
+        public override int Execute(params string[] parameters)
+        {
+            Document doc = Application.ActiveDocument;
+            if (doc == null || doc.IsClear)
+            {
+                MessageBox.Show("No model is open.", "Export IFC",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return 0;
+            }
+
+            ExportOptions options = AskForOptions(doc);
+            if (options == null)
+                return 0; // cancelled
+
+            try
+            {
+                List<NavisElement> elements = CollectElements(doc, options);
+                if (elements.Count == 0)
+                {
+                    MessageBox.Show("No geometry was found to export.", "Export IFC",
+                        MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return 0;
+                }
+
+                IIfcModelWriter writer = IfcWriterFactory.Create(options.Schema);
+                writer.Write(elements, options);
+
+                MessageBox.Show(
+                    $"Exported {elements.Count} element(s) to:\n{options.OutputPath}",
+                    "Export IFC", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Export failed:\n" + ex, "Export IFC",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+
+            return 0;
+        }
+
+        private static ExportOptions AskForOptions(Document doc)
+        {
+            using (var dialog = new SaveFileDialog
+            {
+                Title = "Export IFC",
+                Filter = "IFC4 (*.ifc)|*.ifc|IFC2x3 (*.ifc)|*.ifc",
+                FilterIndex = 1,
+                AddExtension = true,
+                DefaultExt = "ifc",
+                FileName = "export.ifc"
+            })
+            {
+                if (dialog.ShowDialog() != DialogResult.OK)
+                    return null;
+
+                return new ExportOptions
+                {
+                    OutputPath = dialog.FileName,
+                    // FilterIndex is 1-based: 1 => IFC4, 2 => IFC2x3
+                    Schema = dialog.FilterIndex == 2 ? IfcSchemaTarget.Ifc2x3 : IfcSchemaTarget.Ifc4,
+                    UnitScaleToMetre = UnitsHelper.MetresPerUnit(doc.Units),
+                    ProjectName = string.IsNullOrEmpty(doc.FileName)
+                        ? "Navisworks Export"
+                        : System.IO.Path.GetFileNameWithoutExtension(doc.FileName)
+                };
+            }
+        }
+
+        private static List<NavisElement> CollectElements(Document doc, ExportOptions options)
+        {
+            var roots = new ModelItemCollection();
+
+            ModelItemCollection selected = doc.CurrentSelection.SelectedItems;
+            if (selected != null && selected.Count > 0)
+            {
+                roots.AddRange(selected);
+            }
+            else
+            {
+                foreach (Model model in doc.Models)
+                    roots.Add(model.RootItem);
+            }
+
+            var elements = new List<NavisElement>();
+            foreach (ModelItem root in roots)
+            {
+                foreach (ModelItem item in root.DescendantsAndSelf)
+                {
+                    if (!item.HasGeometry)
+                        continue;
+
+                    MeshGeometry mesh = GeometryExtractor.Extract(item);
+                    if (mesh == null || mesh.TriangleCount == 0)
+                        continue;
+
+                    var element = new NavisElement
+                    {
+                        Name = string.IsNullOrEmpty(item.DisplayName) ? "Item" : item.DisplayName,
+                        ClassName = item.ClassName,
+                        Mesh = mesh
+                    };
+
+                    if (options.ExportProperties)
+                    {
+                        foreach (var category in PropertyExtractor.Extract(item))
+                            element.Properties[category.Key] = category.Value;
+                    }
+
+                    elements.Add(element);
+                }
+            }
+
+            return elements;
+        }
+    }
+}
