@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using System.Text;
 using ComApi = Autodesk.Navisworks.Api.Interop.ComApi;
 
 namespace NavisworksIfcExporter.Geometry
@@ -17,6 +19,88 @@ namespace NavisworksIfcExporter.Geometry
     /// </summary>
     internal static class ColorExtractor
     {
+        private static bool _dumped;
+
+        /// <summary>
+        /// One-time diagnostic: writes the node/attribute structure of the first
+        /// element to the Desktop so we can see exactly where the colour lives.
+        /// </summary>
+        public static void DumpOnce(ComApi.InwOaPath path)
+        {
+            if (_dumped)
+                return;
+            _dumped = true;
+
+            var sb = new StringBuilder();
+            try
+            {
+                dynamic dPath = path;
+                dynamic nodes = TryGet(() => dPath.Nodes());
+                int count = ToInt(TryGet(() => nodes.Count));
+                sb.AppendLine("Path node count: " + count);
+                for (int i = 1; i <= count; i++)
+                {
+                    dynamic node = Index(nodes, i);
+                    sb.AppendLine($"== Node {i}: {Describe(node)} | rgb={RgbString(node)}");
+                    dynamic attrs = TryGet(() => node.Attributes());
+                    if (attrs == null)
+                        attrs = TryGet(() => node.GetAttributes());
+                    int ac = ToInt(TryGet(() => attrs.Count));
+                    sb.AppendLine($"   attribute count: {ac}");
+                    for (int j = 1; j <= ac; j++)
+                    {
+                        dynamic a = Index(attrs, j);
+                        sb.AppendLine($"   [{j}] {Describe(a)} | rgb={RgbString(a)}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                sb.AppendLine("dump error: " + ex.Message);
+            }
+
+            try
+            {
+                string file = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+                    "nwifc_color_debug.txt");
+                File.WriteAllText(file, sb.ToString());
+            }
+            catch
+            {
+                // ignore
+            }
+        }
+
+        private static string Describe(dynamic obj)
+        {
+            if (obj == null)
+                return "null";
+            string cn = AsString(TryGet(() => obj.ClassName));
+            string cun = AsString(TryGet(() => obj.ClassUserName));
+            string nm = AsString(TryGet(() => obj.name));
+            string un = AsString(TryGet(() => obj.UserName));
+            return $"ClassName='{cn}' ClassUserName='{cun}' name='{nm}' UserName='{un}'";
+        }
+
+        private static string RgbString(dynamic obj)
+        {
+            try
+            {
+                return $"{Convert.ToDouble(obj.red):0.###},{Convert.ToDouble(obj.green):0.###},{Convert.ToDouble(obj.blue):0.###}";
+            }
+            catch
+            {
+                return "-";
+            }
+        }
+
+        private static string AsString(dynamic v)
+        {
+            try { return v == null ? "" : Convert.ToString(v); }
+            catch { return ""; }
+        }
+
         /// <summary>Returns RGBA (0..1) or null if no colour could be found.</summary>
         public static double[] TryGetColor(ComApi.InwOaPath path)
         {

@@ -31,6 +31,7 @@ namespace NavisworksIfcExporter.Geometry
 
             foreach (ComApi.InwOaPath path in comSelection.Paths())
             {
+                ColorExtractor.DumpOnce(path); // one-time diagnostic to Desktop
                 if (materialColor == null)
                     materialColor = ColorExtractor.TryGetColor(path);
 
