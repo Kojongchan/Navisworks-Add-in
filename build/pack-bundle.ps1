@@ -39,7 +39,32 @@ $excludeDlls = @(
 )
 
 Write-Host "==> Building $Configuration (x64)" -ForegroundColor Cyan
-& msbuild $project /restore /p:Configuration=$Configuration /p:Platform=x64 /p:NavisworksDir=$NavisworksDir
+
+# Find a build tool: prefer MSBuild (from VS / Build Tools), fall back to dotnet.
+function Resolve-BuildTool {
+    $msb = Get-Command msbuild -ErrorAction SilentlyContinue
+    if ($msb) { return @{ Exe = $msb.Source; Kind = "msbuild" } }
+
+    $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
+    if (Test-Path $vswhere) {
+        $path = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild `
+            -find "MSBuild\**\Bin\MSBuild.exe" 2>$null | Select-Object -First 1
+        if ($path) { return @{ Exe = $path; Kind = "msbuild" } }
+    }
+
+    $dn = Get-Command dotnet -ErrorAction SilentlyContinue
+    if ($dn) { return @{ Exe = $dn.Source; Kind = "dotnet" } }
+
+    throw "No build tool found. Install Visual Studio 2022 (or Build Tools for Visual Studio) or the .NET SDK."
+}
+
+$tool = Resolve-BuildTool
+Write-Host "    using $($tool.Kind): $($tool.Exe)"
+if ($tool.Kind -eq "msbuild") {
+    & $tool.Exe $project /restore /p:Configuration=$Configuration /p:Platform=x64 /p:NavisworksDir=$NavisworksDir
+} else {
+    & $tool.Exe build $project -c $Configuration -p:Platform=x64 -p:NavisworksDir=$NavisworksDir
+}
 if ($LASTEXITCODE -ne 0) { throw "Build failed (exit $LASTEXITCODE)." }
 
 Write-Host "==> Staging bundle" -ForegroundColor Cyan

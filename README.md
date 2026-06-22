@@ -9,6 +9,25 @@ the Navisworks API and writing them out with the [xBIM Toolkit](https://github.c
 > Store work under the hood. There's no hidden IFC engine inside Navisworks; you
 > extract the tessellated geometry + properties yourself and assemble the IFC.
 
+## ⚡ Quick start (Windows)
+
+> **There is no prebuilt `setup.exe` in this repo.** The installer must be
+> compiled on a Windows PC that has Navisworks installed (the add-in links
+> against Navisworks' own DLLs, which only exist on that machine). It's a
+> build *output*, so it isn't committed to git. Two double-click batch files
+> make this painless — clone/download the repo, then:
+
+| I want to… | Double-click | Needs |
+|---|---|---|
+| **Just use it on my PC** | `install-for-me.bat` | Navisworks + VS 2022 / .NET SDK |
+| **Make a `setup.exe` to share** | `make-installer.bat` | the above **+ [Inno Setup 6](https://jrsoftware.org/isdl.php)** |
+
+`make-installer.bat` writes the shareable installer to
+`artifacts\NavisworksIfcExporter-Setup-0.1.0.exe`.
+
+Different Navisworks version? Pass its folder, e.g.
+`make-installer.bat -NavisworksDir "C:\Program Files\Autodesk\Navisworks Manage 2024"`.
+
 ## What it does
 
 - Adds an **Export IFC** command under *Tool Add-ins*.
