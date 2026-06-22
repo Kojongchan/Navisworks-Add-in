@@ -36,6 +36,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Required for the C# 'dynamic' late binding used in ColorExtractor. -->
+    <Reference Include="Microsoft.CSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Navisworks managed API. CopyLocal=false: these ship with Navisworks. -->
     <Reference Include="Autodesk.Navisworks.Api">
       <HintPath>$(NavisworksDir)\Autodesk.Navisworks.Api.dll</HintPath>
