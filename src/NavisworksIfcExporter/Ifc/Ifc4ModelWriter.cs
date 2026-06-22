@@ -15,6 +15,8 @@ using Xbim.Ifc4.GeometricConstraintResource;
 using Xbim.Ifc4.RepresentationResource;
 using Xbim.Ifc4.PropertyResource;
 using Xbim.Ifc4.MeasureResource;
+using Xbim.Ifc4.MaterialResource;
+using Xbim.Ifc4.PresentationAppearanceResource;
 
 namespace NavisworksIfcExporter.Ifc
 {
@@ -55,6 +57,8 @@ namespace NavisworksIfcExporter.Ifc
                         r.RelatingStructure = storey;
                     });
 
+                    var materials = new Dictionary<string, IfcMaterial>();
+
                     foreach (var element in elements)
                     {
                         if (!element.HasGeometry)
@@ -64,13 +68,16 @@ namespace NavisworksIfcExporter.Ifc
                         {
                             e.Name = element.Name;
                             e.ObjectPlacement = OriginPlacement(model);
-                            e.Representation = BuildShape(model, context, element.Mesh, scale);
+                            e.Representation = BuildShape(model, context, element.Mesh, scale, element.Color);
                         });
 
                         contained.RelatedElements.Add(proxy);
 
                         if (options.ExportProperties)
                             AddProperties(model, proxy, element);
+
+                        if (!string.IsNullOrWhiteSpace(element.MaterialName))
+                            AssociateMaterial(model, proxy, element.MaterialName, materials);
                     }
 
                     txn.Commit();
@@ -100,7 +107,7 @@ namespace NavisworksIfcExporter.Ifc
         }
 
         private static IfcProductDefinitionShape BuildShape(
-            IfcStore model, IfcGeometricRepresentationContext context, MeshGeometry mesh, double scale)
+            IfcStore model, IfcGeometricRepresentationContext context, MeshGeometry mesh, double scale, double[] color)
         {
             int vertexCount = mesh.VertexCount;
             int triCount = mesh.TriangleCount;
@@ -134,6 +141,9 @@ namespace NavisworksIfcExporter.Ifc
                 }
             });
 
+            if (color != null)
+                ApplyColor(model, faceSet, color);
+
             var shapeRep = model.Instances.New<IfcShapeRepresentation>(r =>
             {
                 r.ContextOfItems = context;
@@ -143,6 +153,52 @@ namespace NavisworksIfcExporter.Ifc
             });
 
             return model.Instances.New<IfcProductDefinitionShape>(s => s.Representations.Add(shapeRep));
+        }
+
+        private static void ApplyColor(IfcStore model, IfcGeometricRepresentationItem item, double[] rgba)
+        {
+            model.Instances.New<IfcStyledItem>(styled =>
+            {
+                styled.Item = item;
+                styled.Styles.Add(model.Instances.New<IfcSurfaceStyle>(style =>
+                {
+                    style.Side = IfcSurfaceSide.BOTH;
+                    style.Styles.Add(model.Instances.New<IfcSurfaceStyleRendering>(rendering =>
+                    {
+                        rendering.SurfaceColour = model.Instances.New<IfcColourRgb>(c =>
+                        {
+                            c.Red = Clamp01(rgba[0]);
+                            c.Green = Clamp01(rgba[1]);
+                            c.Blue = Clamp01(rgba[2]);
+                        });
+                        if (rgba.Length >= 4 && rgba[3] < 1.0)
+                            rendering.Transparency = Clamp01(1.0 - rgba[3]);
+                    }));
+                }));
+            });
+        }
+
+        private static double Clamp01(double v)
+        {
+            if (v < 0.0) return 0.0;
+            if (v > 1.0) return 1.0;
+            return v;
+        }
+
+        private static void AssociateMaterial(
+            IfcStore model, IfcBuildingElementProxy proxy, string name, Dictionary<string, IfcMaterial> cache)
+        {
+            if (!cache.TryGetValue(name, out var material))
+            {
+                material = model.Instances.New<IfcMaterial>(m => m.Name = name);
+                cache[name] = material;
+            }
+
+            model.Instances.New<IfcRelAssociatesMaterial>(r =>
+            {
+                r.RelatingMaterial = material;
+                r.RelatedObjects.Add(proxy);
+            });
         }
 
         private static IfcLocalPlacement OriginPlacement(IfcStore model)

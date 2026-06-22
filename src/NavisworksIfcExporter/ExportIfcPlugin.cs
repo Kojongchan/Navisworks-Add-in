@@ -151,7 +151,8 @@ namespace NavisworksIfcExporter
                     {
                         Name = string.IsNullOrEmpty(item.DisplayName) ? "Item" : item.DisplayName,
                         ClassName = item.ClassName,
-                        Mesh = mesh
+                        Mesh = mesh,
+                        Color = mesh.Color
                     };
 
                     if (options.ExportProperties)
@@ -160,11 +161,32 @@ namespace NavisworksIfcExporter
                             element.Properties[category.Key] = category.Value;
                     }
 
+                    element.MaterialName = FindMaterialName(element.Properties);
+
                     elements.Add(element);
                 }
             }
 
             return elements;
+        }
+
+        // Best-effort: find a material name among the item's properties (e.g. a
+        // property named "Material" / "재료"). Returns null if none found.
+        private static string FindMaterialName(Dictionary<string, Dictionary<string, string>> properties)
+        {
+            foreach (var category in properties)
+            {
+                foreach (var prop in category.Value)
+                {
+                    bool looksLikeMaterial =
+                        prop.Key.IndexOf("material", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        prop.Key.IndexOf("재료", StringComparison.Ordinal) >= 0;
+
+                    if (looksLikeMaterial && !string.IsNullOrWhiteSpace(prop.Value))
+                        return prop.Value.Trim();
+                }
+            }
+            return null;
         }
     }
 }

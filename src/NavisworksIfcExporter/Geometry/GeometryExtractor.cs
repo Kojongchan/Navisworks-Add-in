@@ -33,7 +33,8 @@ namespace NavisworksIfcExporter.Geometry
                 foreach (ComApi.InwOaFragment3 fragment in path.Fragments())
                 {
                     listener.SetMatrix(fragment.GetLocalToWorldMatrix());
-                    fragment.GenerateSimplePrimitives(ComApi.nwEVertexProperty.eNORMAL, listener);
+                    fragment.GenerateSimplePrimitives(
+                        ComApi.nwEVertexProperty.eNORMAL | ComApi.nwEVertexProperty.eCOLOR, listener);
                 }
             }
 

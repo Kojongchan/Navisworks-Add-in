@@ -28,6 +28,9 @@ namespace NavisworksIfcExporter.Geometry
         private readonly Dictionary<long, int> _vertexLookup = new Dictionary<long, int>();
         private readonly List<(double x, double y, double z)> _vertices = new List<(double, double, double)>();
 
+        // First per-vertex colour seen (RGBA 0..1), used as the element colour.
+        private double[] _color;
+
         /// <summary>Set the local-to-world matrix for the fragment about to be generated.</summary>
         /// <param name="localToWorldMatrix">The object returned by InwOaFragment3.GetLocalToWorldMatrix().</param>
         public void SetMatrix(object localToWorldMatrix)
@@ -41,6 +44,7 @@ namespace NavisworksIfcExporter.Geometry
 
         public void Triangle(ComApi.InwSimpleVertex v1, ComApi.InwSimpleVertex v2, ComApi.InwSimpleVertex v3)
         {
+            CaptureColor(v1);
             _indices.Add(AddVertex(v1));
             _indices.Add(AddVertex(v2));
             _indices.Add(AddVertex(v3));
@@ -60,7 +64,32 @@ namespace NavisworksIfcExporter.Geometry
             var mesh = new MeshGeometry();
             mesh.Coordinates.AddRange(_coords);
             mesh.TriangleIndices.AddRange(_indices);
+            mesh.Color = _color;
             return mesh;
+        }
+
+        // Reads the colour from a vertex (only present when eCOLOR was requested).
+        // The colour is a VARIANT float array (RGB or RGBA, 0..1).
+        private void CaptureColor(ComApi.InwSimpleVertex v)
+        {
+            if (_color != null)
+                return;
+            try
+            {
+                Array a = (Array)(object)v.color;
+                if (a == null || a.Length < 3)
+                    return;
+                int lb = a.GetLowerBound(0);
+                double r = Convert.ToDouble(a.GetValue(lb));
+                double g = Convert.ToDouble(a.GetValue(lb + 1));
+                double b = Convert.ToDouble(a.GetValue(lb + 2));
+                double alpha = a.Length >= 4 ? Convert.ToDouble(a.GetValue(lb + 3)) : 1.0;
+                _color = new[] { r, g, b, alpha };
+            }
+            catch
+            {
+                // Colour not available for this geometry; leave as null.
+            }
         }
 
         private int AddVertex(ComApi.InwSimpleVertex v)

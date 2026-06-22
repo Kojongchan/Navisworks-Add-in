@@ -41,6 +41,9 @@ namespace NavisworksIfcExporter.Model
         /// <summary>Triangle vertex indices (0-based), grouped in threes.</summary>
         public List<int> TriangleIndices { get; } = new List<int>();
 
+        /// <summary>Representative display colour as RGBA (0..1), or null if unknown.</summary>
+        public double[] Color { get; set; }
+
         public int VertexCount => Coordinates.Count / 3;
         public int TriangleCount => TriangleIndices.Count / 3;
     }
@@ -57,6 +60,12 @@ namespace NavisworksIfcExporter.Model
 
         /// <summary>Navisworks class name (e.g. "Solid", "Geometry").</summary>
         public string ClassName { get; set; }
+
+        /// <summary>Display colour as RGBA (0..1), or null if unknown.</summary>
+        public double[] Color { get; set; }
+
+        /// <summary>Material name if one could be found in the properties, else null.</summary>
+        public string MaterialName { get; set; }
 
         public MeshGeometry Mesh { get; set; }
 
