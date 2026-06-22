@@ -17,6 +17,7 @@ using Xbim.Ifc4.PropertyResource;
 using Xbim.Ifc4.MeasureResource;
 using Xbim.Ifc4.MaterialResource;
 using Xbim.Ifc4.PresentationAppearanceResource;
+using Xbim.Ifc4.Interfaces; // IfcSurfaceSide enum
 
 namespace NavisworksIfcExporter.Ifc
 {

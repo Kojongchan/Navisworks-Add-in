@@ -17,6 +17,7 @@ using Xbim.Ifc2x3.PropertyResource;
 using Xbim.Ifc2x3.MeasureResource;
 using Xbim.Ifc2x3.MaterialResource;
 using Xbim.Ifc2x3.PresentationAppearanceResource;
+using Xbim.Ifc2x3.PresentationResource; // IfcColourRgb
 
 namespace NavisworksIfcExporter.Ifc
 {
