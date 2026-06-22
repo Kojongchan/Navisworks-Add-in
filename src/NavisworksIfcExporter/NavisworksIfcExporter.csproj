@@ -15,6 +15,11 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <Version>0.1.0</Version>
+
+    <!-- Copy ALL NuGet dependencies (xBIM + its deps) into the output folder so
+         they get deployed next to the add-in. Without this, the plugin loads but
+         throws FileNotFoundException for Xbim.Ifc etc. at export time. -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
   <!--
