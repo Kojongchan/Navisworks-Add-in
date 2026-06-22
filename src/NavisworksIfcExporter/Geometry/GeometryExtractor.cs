@@ -27,9 +27,13 @@ namespace NavisworksIfcExporter.Geometry
             ComApi.InwOpSelection comSelection = ComBridge.ToInwOpSelection(collection);
 
             var listener = new CallbackGeomListener();
+            double[] materialColor = null;
 
             foreach (ComApi.InwOaPath path in comSelection.Paths())
             {
+                if (materialColor == null)
+                    materialColor = ColorExtractor.TryGetColor(path);
+
                 foreach (ComApi.InwOaFragment3 fragment in path.Fragments())
                 {
                     listener.SetMatrix(fragment.GetLocalToWorldMatrix());
@@ -38,7 +42,11 @@ namespace NavisworksIfcExporter.Geometry
                 }
             }
 
-            return listener.ToMesh();
+            MeshGeometry mesh = listener.ToMesh();
+            if (mesh != null && materialColor != null)
+                mesh.Color = materialColor; // material colour is the real source; prefer it
+
+            return mesh;
         }
     }
 }
