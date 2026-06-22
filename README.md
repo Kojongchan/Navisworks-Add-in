@@ -111,9 +111,28 @@ Produces:
 > The Navisworks API DLLs are intentionally **excluded** from the bundle — they
 > ship with Navisworks and must not be redistributed.
 
-### Install (any user)
+### Build a double-click installer (recommended for end users)
 
-Copy `NavisworksIfcExporter.bundle` into one of:
+Most users find a `.exe` installer far easier than a zip. An [Inno Setup](https://jrsoftware.org/isdl.php)
+script builds one that installs the bundle for all users and adds a Windows
+uninstall entry.
+
+```powershell
+# Requires Inno Setup 6 installed
+pwsh build/build-installer.ps1
+```
+
+Produces `artifacts/NavisworksIfcExporter-Setup-<version>.exe`. Users just
+double-click it (it prompts for admin, warns if Navisworks is running, and
+installs to `%PROGRAMDATA%\Autodesk\ApplicationPlugins\`). Uninstall from
+**Settings → Apps**.
+
+The installer layout lives in `installer/NavisworksIfcExporter.iss`.
+
+### Install from the bundle/zip manually (alternative)
+
+If you'd rather not use the installer, copy `NavisworksIfcExporter.bundle` into
+one of:
 - All users:    `%PROGRAMDATA%\Autodesk\ApplicationPlugins\`
 - Current user: `%APPDATA%\Autodesk\ApplicationPlugins\`
 
@@ -138,10 +157,6 @@ This copies the bundle straight into your user `ApplicationPlugins` folder.
    and a description, then submit for review.
 4. Keep `UpgradeCode` stable across releases; bump `ProductCode` and
    `AppVersion` each release.
-
-> Want a double-click `.exe`/`.msi` installer for direct/intranet distribution as
-> well? That's a small add-on (Inno Setup / WiX) on top of this bundle — ask and
-> we'll add it.
 
 ## Roadmap ideas
 

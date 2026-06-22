@@ -1,0 +1,75 @@
+; Inno Setup script for the Navisworks IFC Exporter add-in.
+;
+; Produces a double-click setup.exe that installs the Autodesk Application
+; Bundle into the all-users ApplicationPlugins folder, so every user on the
+; machine gets the "Export IFC" command. Uninstall via Windows "Apps & features".
+;
+; Build the bundle first (build/pack-bundle.ps1 -> artifacts/...), then compile
+; this script with Inno Setup's ISCC.exe. build/build-installer.ps1 does both.
+
+#define MyAppName "Navisworks IFC Exporter"
+#define MyAppVersion "0.1.0"
+#define MyAppPublisher "Your Company"
+#define MyAppUrl "https://example.com"
+#define BundleName "NavisworksIfcExporter.bundle"
+; Path to the staged bundle produced by build/pack-bundle.ps1
+#define BundleSource "..\artifacts\" + BundleName
+
+[Setup]
+; Keep AppId STABLE across releases so upgrades replace cleanly.
+AppId={{B3D1F7A2-5C84-4E61-9A0D-7F2C6E8B14D9}
+AppName={#MyAppName}
+AppVersion={#MyAppVersion}
+AppPublisher={#MyAppPublisher}
+AppPublisherURL={#MyAppUrl}
+VersionInfoVersion={#MyAppVersion}
+
+; Install all-users into %PROGRAMDATA%\Autodesk\ApplicationPlugins\<bundle>.
+; This requires admin; Navisworks discovers it automatically from there.
+DefaultDirName={commonappdata}\Autodesk\ApplicationPlugins\{#BundleName}
+DisableDirPage=yes
+DisableProgramGroupPage=yes
+PrivilegesRequired=admin
+
+; Navisworks is 64-bit only.
+ArchitecturesAllowed=x64
+ArchitecturesInstallIn64BitMode=x64
+
+OutputDir=..\artifacts
+OutputBaseFilename=NavisworksIfcExporter-Setup-{#MyAppVersion}
+Compression=lzma2
+SolidCompression=yes
+WizardStyle=modern
+UninstallDisplayName={#MyAppName}
+
+[Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"
+; Korean (ships with Inno Setup 6 under Languages\)
+Name: "korean"; MessagesFile: "compiler:Languages\Korean.isl"
+
+[Files]
+; Copy the entire staged bundle (PackageContents.xml + Contents\*) into place.
+Source: "{#BundleSource}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
+
+[Messages]
+english.WelcomeLabel2=This will install [name/ver] for Navisworks 2022 or later.%n%nPlease CLOSE Navisworks before continuing, otherwise some files may be locked.
+korean.WelcomeLabel2=Navisworks 2022 이상용 [name/ver] 을(를) 설치합니다.%n%n설치 전에 Navisworks 를 종료하세요. 실행 중이면 일부 파일이 잠길 수 있습니다.
+
+[Code]
+// Warn (don't hard-block) if Navisworks (Roamer.exe) appears to be running.
+function InitializeSetup(): Boolean;
+var
+  ResultCode: Integer;
+begin
+  Result := True;
+  if Exec(ExpandConstant('{cmd}'), '/C tasklist /FI "IMAGENAME eq Roamer.exe" | find /I "Roamer.exe"',
+          '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+  begin
+    if ResultCode = 0 then
+    begin
+      if MsgBox('Navisworks appears to be running. Close it before installing to avoid locked files.' + #13#10 +
+                'Continue anyway?', mbConfirmation, MB_YESNO) = IDNO then
+        Result := False;
+    end;
+  end;
+end;
