@@ -12,6 +12,9 @@ packages/
 # Packaging output
 artifacts/
 
+# Signing secrets — never commit the private key
+*.pfx
+
 # Rider / VS
 .idea/
 

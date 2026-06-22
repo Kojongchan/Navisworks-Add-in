@@ -19,17 +19,25 @@
 param(
     [string]$Configuration = "Release",
     [string]$NavisworksDir = "C:\Program Files\Autodesk\Navisworks Manage 2022",
-    [string]$Iscc = ""
+    [string]$Iscc = "",
+    # Optional code signing (applied to both the add-in DLL and the setup.exe).
+    [string]$SignPfx = "",
+    [string]$SignPassword = "",
+    [string]$SignThumbprint = "",
+    [string]$TimestampUrl = "http://timestamp.digicert.com"
 )
 
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $iss      = Join-Path $repoRoot "installer\NavisworksIfcExporter.iss"
+$artifacts = Join-Path $repoRoot "artifacts"
 
 # 1. Build + stage the bundle (produces artifacts/NavisworksIfcExporter.bundle).
+#    The add-in DLL is signed here so the signature is inside the installer too.
 Write-Host "==> Building and staging bundle" -ForegroundColor Cyan
-& (Join-Path $PSScriptRoot "pack-bundle.ps1") -Configuration $Configuration -NavisworksDir $NavisworksDir
+& (Join-Path $PSScriptRoot "pack-bundle.ps1") -Configuration $Configuration -NavisworksDir $NavisworksDir `
+    -SignPfx $SignPfx -SignPassword $SignPassword -SignThumbprint $SignThumbprint -TimestampUrl $TimestampUrl
 
 # 2. Locate ISCC.exe.
 if (-not $Iscc) {
@@ -48,5 +56,16 @@ Write-Host "==> Compiling installer with $Iscc" -ForegroundColor Cyan
 & $Iscc $iss
 if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed (exit $LASTEXITCODE)." }
 
+# 4. Sign the resulting setup.exe (so users don't see a tampered/unsigned warning).
+if ($SignPfx -or $SignThumbprint) {
+    $setup = Get-ChildItem $artifacts -Filter "NavisworksIfcExporter-Setup-*.exe" |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($setup) {
+        Write-Host "==> Signing installer" -ForegroundColor Cyan
+        & (Join-Path $PSScriptRoot "sign.ps1") -Files $setup.FullName `
+            -PfxPath $SignPfx -PfxPassword $SignPassword -Thumbprint $SignThumbprint -TimestampUrl $TimestampUrl
+    }
+}
+
 Write-Host ""
-Write-Host "Installer written to: $(Join-Path $repoRoot 'artifacts')" -ForegroundColor Green
+Write-Host "Installer written to: $artifacts" -ForegroundColor Green

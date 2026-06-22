@@ -13,7 +13,12 @@
 #>
 param(
     [string]$Configuration = "Release",
-    [string]$NavisworksDir = "C:\Program Files\Autodesk\Navisworks Manage 2022"
+    [string]$NavisworksDir = "C:\Program Files\Autodesk\Navisworks Manage 2022",
+    # Optional code signing of the add-in DLL.
+    [string]$SignPfx = "",
+    [string]$SignPassword = "",
+    [string]$SignThumbprint = "",
+    [string]$TimestampUrl = "http://timestamp.digicert.com"
 )
 
 $ErrorActionPreference = "Stop"
@@ -42,12 +47,25 @@ if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
 New-Item -ItemType Directory -Path $stageInner -Force | Out-Null
 Copy-Item (Join-Path $bundleSrc "PackageContents.xml") $stage
 
+# Ship static resources (icons) but not the developer README placeholder.
+$resourcesSrc = Join-Path $bundleSrc "Contents\Resources"
+if (Test-Path $resourcesSrc) {
+    Copy-Item $resourcesSrc (Join-Path $stageInner "Resources") -Recurse
+}
+
 Get-ChildItem $buildOut -File |
     Where-Object { $_.Extension -in ".dll", ".pdb", ".config" -and $excludeDlls -notcontains $_.Name } |
     ForEach-Object { Copy-Item $_.FullName $stageInner }
 
-if (-not (Test-Path (Join-Path $stageInner "NavisworksIfcExporter.dll"))) {
+$addinDll = Join-Path $stageInner "NavisworksIfcExporter.dll"
+if (-not (Test-Path $addinDll)) {
     throw "NavisworksIfcExporter.dll not found in build output. Did the build succeed?"
+}
+
+if ($SignPfx -or $SignThumbprint) {
+    Write-Host "==> Signing add-in DLL" -ForegroundColor Cyan
+    & (Join-Path $PSScriptRoot "sign.ps1") -Files $addinDll `
+        -PfxPath $SignPfx -PfxPassword $SignPassword -Thumbprint $SignThumbprint -TimestampUrl $TimestampUrl
 }
 
 Write-Host "==> Zipping" -ForegroundColor Cyan

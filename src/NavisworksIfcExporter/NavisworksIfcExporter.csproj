@@ -61,9 +61,11 @@
     <ItemGroup>
       <BundleBinaries Include="$(TargetDir)*.dll;$(TargetDir)*.pdb;$(TargetDir)*.config"
                       Exclude="$(TargetDir)Autodesk.Navisworks.*.dll" />
+      <BundleResources Include="$(BundleSource)\Contents\Resources\**\*" />
     </ItemGroup>
     <Copy SourceFiles="$(BundleSource)\PackageContents.xml" DestinationFolder="$(AppPluginsDir)" />
     <Copy SourceFiles="@(BundleBinaries)" DestinationFolder="$(AppPluginsDir)\Contents" />
+    <Copy SourceFiles="@(BundleResources)" DestinationFolder="$(AppPluginsDir)\Contents\Resources\%(RecursiveDir)" />
     <Message Importance="high" Text="Deployed bundle to $(AppPluginsDir)" />
   </Target>
 

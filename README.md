@@ -127,7 +127,48 @@ double-click it (it prompts for admin, warns if Navisworks is running, and
 installs to `%PROGRAMDATA%\Autodesk\ApplicationPlugins\`). Uninstall from
 **Settings → Apps**.
 
-The installer layout lives in `installer/NavisworksIfcExporter.iss`.
+The installer layout lives in `installer/NavisworksIfcExporter.iss`. Publisher is
+set to **CHAN**; the icon and wizard banner come from `installer/assets/`.
+
+### Branding assets
+
+The icon and installer banner are generated from a script so they're
+reproducible (no binary editing):
+
+```
+python3 assets/generate_assets.py
+```
+
+This (re)writes:
+- `installer/assets/appicon.ico` — setup + uninstall icon
+- `installer/assets/wizard_large.bmp`, `wizard_small.bmp` — installer banners
+- `deploy/NavisworksIfcExporter.bundle/Contents/Resources/` — the icon shown in
+  the Autodesk App Store / plugin manager (referenced by `PackageContents.xml`)
+
+Edit colors/text near the top of `assets/generate_assets.py` to restyle.
+
+### Code signing (publisher: CHAN)
+
+Signing is automated and optional — pass a certificate to the build and both the
+add-in DLL and the `setup.exe` get signed (SHA-256 + timestamp).
+
+```powershell
+# One-time: create a self-signed "CHAN" certificate (for testing / managed networks)
+pwsh build/new-signing-cert.ps1 -Password "<strong-password>"
+
+# Build a signed installer
+pwsh build/build-installer.ps1 -SignPfx installer\CHAN-codesign.pfx -SignPassword "<strong-password>"
+```
+
+You can also sign by certificate store thumbprint: `-SignThumbprint <hash>`.
+
+> **Self-signed vs. real certificate:** a self-signed CHAN certificate makes the
+> signature consistent and tamper-evident, but Windows still shows "Unknown
+> publisher" on *other* machines unless the public `CHAN-codesign.cer` is trusted
+> there (e.g. deployed via Group Policy on a managed network). For public
+> distribution (App Store / internet), buy an **OV or EV code-signing
+> certificate** and point `-SignPfx` at it — no script changes needed. The
+> `.pfx` is git-ignored; never commit it.
 
 ### Install from the bundle/zip manually (alternative)
 
@@ -149,12 +190,11 @@ This copies the bundle straight into your user `ApplicationPlugins` folder.
 ### Publishing to the Autodesk App Store (so anyone can install)
 
 1. Register as a publisher at the [Autodesk App Store](https://apps.autodesk.com/).
-2. **Code-sign** `NavisworksIfcExporter.dll` (and ideally all your DLLs) with an
-   Authenticode certificate — unsigned add-ins trigger SmartScreen warnings and
-   App Store review generally expects signing.
-3. Upload the bundle zip from `artifacts/`, fill in `PackageContents.xml`
-   metadata (Name, Author, CompanyDetails, ProductCode/UpgradeCode), screenshots
-   and a description, then submit for review.
+2. **Code-sign** with a real CA certificate (see "Code signing" above) — App
+   Store review expects signing, and a self-signed cert won't be trusted.
+3. Upload the bundle zip from `artifacts/`, confirm `PackageContents.xml`
+   metadata (Name, Author=CHAN, CompanyDetails, ProductCode/UpgradeCode),
+   add screenshots and a description, then submit for review.
 4. Keep `UpgradeCode` stable across releases; bump `ProductCode` and
    `AppVersion` each release.
 

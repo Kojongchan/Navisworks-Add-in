@@ -26,16 +26,17 @@
     Name="Navisworks IFC Exporter"
     AppVersion="0.1.0"
     Description="Adds Export to IFC (IFC4 / IFC2x3) to Navisworks."
-    Author="Your Name"
+    Author="CHAN"
+    Icon="./Contents/Resources/NavisworksIfcExporter.png"
     AppNameSpace="appstore.exchange.autodesk.com"
     ProductCode="{4F2C8E1A-7B3D-4C9E-A1F6-2D5B8C3E9A47}"
     UpgradeCode="{9A1B2C3D-4E5F-6A7B-8C9D-0E1F2A3B4C5D}"
     SupportedLocales="Enu">
 
   <CompanyDetails
-      Name="Your Company"
-      Url="https://example.com"
-      Email="you@example.com" />
+      Name="CHAN"
+      Url=""
+      Email="" />
 
   <!-- 2022..2025+ all load the same DLL. Split into multiple <Components> with
        different ModuleName paths only if you ship per-version builds. -->
