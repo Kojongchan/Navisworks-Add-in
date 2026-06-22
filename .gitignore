@@ -9,6 +9,9 @@
 packages/
 *.nupkg
 
+# Packaging output
+artifacts/
+
 # Rider / VS
 .idea/
 

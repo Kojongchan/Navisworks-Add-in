@@ -47,4 +47,24 @@
     </Reference>
   </ItemGroup>
 
+  <!--
+    Convenience: deploy the bundle straight to the current user's ApplicationPlugins
+    folder for local testing. Opt in with /p:DeployToNavisworks=true.
+    For a distributable package, use build/pack-bundle.ps1 instead.
+  -->
+  <Target Name="DeployBundle" AfterTargets="Build" Condition="'$(DeployToNavisworks)' == 'true'">
+    <PropertyGroup>
+      <BundleName>NavisworksIfcExporter.bundle</BundleName>
+      <AppPluginsDir>$(APPDATA)\Autodesk\ApplicationPlugins\$(BundleName)</AppPluginsDir>
+      <BundleSource>$(MSBuildProjectDirectory)\..\..\deploy\$(BundleName)</BundleSource>
+    </PropertyGroup>
+    <ItemGroup>
+      <BundleBinaries Include="$(TargetDir)*.dll;$(TargetDir)*.pdb;$(TargetDir)*.config"
+                      Exclude="$(TargetDir)Autodesk.Navisworks.*.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="$(BundleSource)\PackageContents.xml" DestinationFolder="$(AppPluginsDir)" />
+    <Copy SourceFiles="@(BundleBinaries)" DestinationFolder="$(AppPluginsDir)\Contents" />
+    <Message Importance="high" Text="Deployed bundle to $(AppPluginsDir)" />
+  </Target>
+
 </Project>
