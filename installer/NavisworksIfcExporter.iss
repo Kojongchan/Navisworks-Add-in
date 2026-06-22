@@ -1,8 +1,11 @@
 ; Inno Setup script for the Navisworks IFC Exporter add-in.
 ;
-; Produces a double-click setup.exe that installs the Autodesk Application
-; Bundle into the all-users ApplicationPlugins folder, so every user on the
-; machine gets the "Export IFC" command. Uninstall via Windows "Apps & features".
+; Produces a double-click setup.exe that installs the add-in into the Navisworks
+; "Plugins" folder. Navisworks requires the plugin DLL to sit in a subfolder
+; whose name EXACTLY matches the DLL name, i.e.:
+;   <Navisworks install>\Plugins\NavisworksIfcExporter\NavisworksIfcExporter.dll
+; (The ApplicationPlugins/.bundle method is unreliable for Navisworks, so we
+;  deploy to the Plugins folder instead.)
 ;
 ; Build the bundle first (build/pack-bundle.ps1 -> artifacts/...), then compile
 ; this script with Inno Setup's ISCC.exe. build/build-installer.ps1 does both.
@@ -27,10 +30,11 @@ SetupIconFile=assets\appicon.ico
 WizardImageFile=assets\wizard_large.bmp
 WizardSmallImageFile=assets\wizard_small.bmp
 
-; Install all-users into %PROGRAMDATA%\Autodesk\ApplicationPlugins\<bundle>.
-; This requires admin; Navisworks discovers it automatically from there.
-DefaultDirName={commonappdata}\Autodesk\ApplicationPlugins\{#BundleName}
-DisableDirPage=yes
+; Install into <Navisworks>\Plugins\NavisworksIfcExporter (auto-detected below).
+; Writing under Program Files needs admin. The directory page stays enabled so
+; the user can correct the folder if auto-detection picks the wrong version.
+DefaultDirName={code:GetPluginDir}
+DisableDirPage=no
 DisableProgramGroupPage=yes
 PrivilegesRequired=admin
 
@@ -51,14 +55,50 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "korean"; MessagesFile: "compiler:Languages\Korean.isl"
 
 [Files]
-; Copy the entire staged bundle (PackageContents.xml + Contents\*) into place.
-Source: "{#BundleSource}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
+; Copy only the bundle's Contents (the DLLs + Resources) so the add-in DLL lands
+; directly in {app} = ...\Plugins\NavisworksIfcExporter\.
+Source: "{#BundleSource}\Contents\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
 
 [Messages]
-english.WelcomeLabel2=This will install [name/ver] for Navisworks 2022 or later.%n%nPlease CLOSE Navisworks before continuing, otherwise some files may be locked.
-korean.WelcomeLabel2=Navisworks 2022 이상용 [name/ver] 을(를) 설치합니다.%n%n설치 전에 Navisworks 를 종료하세요. 실행 중이면 일부 파일이 잠길 수 있습니다.
+english.WelcomeLabel2=This will install [name/ver] into your Navisworks Plugins folder.%n%nPlease CLOSE Navisworks before continuing, otherwise some files may be locked.
+korean.WelcomeLabel2=Navisworks 의 Plugins 폴더에 [name/ver] 을(를) 설치합니다.%n%n설치 전에 Navisworks 를 종료하세요. 실행 중이면 일부 파일이 잠길 수 있습니다.
+english.SelectDirLabel3=Setup will install into your Navisworks Plugins folder. The folder name must stay "NavisworksIfcExporter".
+korean.SelectDirLabel3=Navisworks 의 Plugins 폴더에 설치됩니다. 폴더 이름은 반드시 "NavisworksIfcExporter" 여야 합니다.
 
 [Code]
+// Find <Navisworks install>\Plugins for the newest installed Manage/Simulate.
+function FindNavisPluginsBase(): String;
+var
+  prods: array[0..1] of String;
+  years: array[0..4] of String;
+  i, j: Integer;
+  p: String;
+begin
+  Result := '';
+  prods[0] := 'Manage';  prods[1] := 'Simulate';
+  years[0] := '2026'; years[1] := '2025'; years[2] := '2024'; years[3] := '2023'; years[4] := '2022';
+  for j := 0 to 1 do
+    for i := 0 to 4 do
+    begin
+      p := ExpandConstant('{commonpf64}') + '\Autodesk\Navisworks ' + prods[j] + ' ' + years[i] + '\Plugins';
+      if DirExists(p) then
+      begin
+        Result := p;
+        Exit;
+      end;
+    end;
+end;
+
+function GetPluginDir(Param: String): String;
+var
+  base: String;
+begin
+  base := FindNavisPluginsBase();
+  if base = '' then
+    base := ExpandConstant('{commonpf64}') + '\Autodesk\Navisworks Manage 2024\Plugins';
+  Result := base + '\NavisworksIfcExporter';
+end;
+
 // Warn (don't hard-block) if Navisworks (Roamer.exe) appears to be running.
 function InitializeSetup(): Boolean;
 var

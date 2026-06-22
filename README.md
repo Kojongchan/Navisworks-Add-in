@@ -96,26 +96,30 @@ built on Linux/CI without the Navisworks DLLs present.**
   xBIM API calls in the writers (point-list / face-set construction) may need
   small adjustments.
 
-## Packaging & distribution (Autodesk Application Bundle)
+## Packaging & distribution
 
-This add-in ships as an **Autodesk Application Bundle** — the same install format
-Autodesk App Store add-ins use. A bundle is a folder named `*.bundle` containing
-a `PackageContents.xml` manifest plus a `Contents/` folder with the binaries.
-Drop the bundle into an `ApplicationPlugins` directory and Navisworks
-auto-discovers it (no per-version Plugins folder needed).
+> **Important — how Navisworks loads add-ins.** Navisworks does *not* reliably
+> load from the `ApplicationPlugins` `.bundle` mechanism (that's an AutoCAD/Revit
+> thing). It loads DLLs from its install-dir **`Plugins`** folder, and the
+> **subfolder name must exactly match the DLL name**:
+>
+> ```
+> <Navisworks install>\Plugins\NavisworksIfcExporter\NavisworksIfcExporter.dll
+> ```
+>
+> So the installer deploys there, not to `ApplicationPlugins`.
+
+The build still *stages* a `.bundle`-shaped folder under `artifacts/` (handy for
+App Store submission), but the installer only takes its `Contents` and drops them
+into the Plugins folder:
 
 ```
-NavisworksIfcExporter.bundle/
-  PackageContents.xml          # manifest (deploy/NavisworksIfcExporter.bundle/)
+artifacts/NavisworksIfcExporter.bundle/
   Contents/
     NavisworksIfcExporter.dll  # the add-in
     Xbim.*.dll                 # xBIM dependencies (and other NuGet deps)
+    Resources/                 # icon
 ```
-
-The manifest declares the supported products/versions:
-`Platform="NAVMAN|NAVSIM"` (Manage/Simulate), `SeriesMin="Nw19"` (= 2022),
-`SeriesMax="Nw99"`. Version codes: **Nw19=2022, Nw20=2023, Nw21=2024, Nw22=2025**.
-Pin `SeriesMax` to the newest release you've actually tested.
 
 ### Build the distributable bundle
 
@@ -142,9 +146,9 @@ pwsh build/build-installer.ps1
 ```
 
 Produces `artifacts/NavisworksIfcExporter-Setup-<version>.exe`. Users just
-double-click it (it prompts for admin, warns if Navisworks is running, and
-installs to `%PROGRAMDATA%\Autodesk\ApplicationPlugins\`). Uninstall from
-**Settings → Apps**.
+double-click it (it prompts for admin, warns if Navisworks is running,
+auto-detects the installed Navisworks version, and installs into its
+`Plugins\NavisworksIfcExporter` folder). Uninstall from **Settings → Apps**.
 
 The installer layout lives in `installer/NavisworksIfcExporter.iss`. Publisher is
 set to **CHAN**; the icon and wizard banner come from `installer/assets/`.
@@ -189,22 +193,26 @@ You can also sign by certificate store thumbprint: `-SignThumbprint <hash>`.
 > certificate** and point `-SignPfx` at it — no script changes needed. The
 > `.pfx` is git-ignored; never commit it.
 
-### Install from the bundle/zip manually (alternative)
+### Install manually (alternative)
 
-If you'd rather not use the installer, copy `NavisworksIfcExporter.bundle` into
-one of:
-- All users:    `%PROGRAMDATA%\Autodesk\ApplicationPlugins\`
-- Current user: `%APPDATA%\Autodesk\ApplicationPlugins\`
+Copy the contents of `artifacts/NavisworksIfcExporter.bundle/Contents/` into a
+folder named **exactly** `NavisworksIfcExporter` under your Navisworks Plugins
+folder, so the DLL ends up at:
+
+```
+C:\Program Files\Autodesk\Navisworks Manage 2024\Plugins\NavisworksIfcExporter\NavisworksIfcExporter.dll
+```
 
 Then launch Navisworks → ribbon **Tool Add-ins** → **Export IFC**.
 
 ### Install locally while developing
 
 ```
-msbuild src/NavisworksIfcExporter.sln /p:Configuration=Release /p:Platform=x64 /p:DeployToNavisworks=true
+install-for-me.bat
 ```
 
-This copies the bundle straight into your user `ApplicationPlugins` folder.
+(or `msbuild ... /p:DeployToNavisworks=true /p:NavisworksDir=...` — run as admin).
+Both build and copy into `<Navisworks>\Plugins\NavisworksIfcExporter`.
 
 ### Publishing to the Autodesk App Store (so anyone can install)
 

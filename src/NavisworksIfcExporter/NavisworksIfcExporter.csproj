@@ -48,25 +48,25 @@
   </ItemGroup>
 
   <!--
-    Convenience: deploy the bundle straight to the current user's ApplicationPlugins
-    folder for local testing. Opt in with /p:DeployToNavisworks=true.
-    For a distributable package, use build/pack-bundle.ps1 instead.
+    Convenience: deploy straight into the Navisworks Plugins folder for local
+    testing (folder name must match the DLL name). Opt in with:
+      /p:DeployToNavisworks=true   (optionally /p:NavisworksDir=...)
+    Needs write access to the Navisworks install dir (run VS / MSBuild as admin).
+    For a distributable installer, use build/build-installer.ps1 instead.
   -->
   <Target Name="DeployBundle" AfterTargets="Build" Condition="'$(DeployToNavisworks)' == 'true'">
     <PropertyGroup>
-      <BundleName>NavisworksIfcExporter.bundle</BundleName>
-      <AppPluginsDir>$(APPDATA)\Autodesk\ApplicationPlugins\$(BundleName)</AppPluginsDir>
-      <BundleSource>$(MSBuildProjectDirectory)\..\..\deploy\$(BundleName)</BundleSource>
+      <PluginDir>$(NavisworksDir)\Plugins\NavisworksIfcExporter</PluginDir>
+      <BundleSource>$(MSBuildProjectDirectory)\..\..\deploy\NavisworksIfcExporter.bundle</BundleSource>
     </PropertyGroup>
     <ItemGroup>
       <BundleBinaries Include="$(TargetDir)*.dll;$(TargetDir)*.pdb;$(TargetDir)*.config"
                       Exclude="$(TargetDir)Autodesk.Navisworks.*.dll" />
       <BundleResources Include="$(BundleSource)\Contents\Resources\**\*" />
     </ItemGroup>
-    <Copy SourceFiles="$(BundleSource)\PackageContents.xml" DestinationFolder="$(AppPluginsDir)" />
-    <Copy SourceFiles="@(BundleBinaries)" DestinationFolder="$(AppPluginsDir)\Contents" />
-    <Copy SourceFiles="@(BundleResources)" DestinationFolder="$(AppPluginsDir)\Contents\Resources\%(RecursiveDir)" />
-    <Message Importance="high" Text="Deployed bundle to $(AppPluginsDir)" />
+    <Copy SourceFiles="@(BundleBinaries)" DestinationFolder="$(PluginDir)" />
+    <Copy SourceFiles="@(BundleResources)" DestinationFolder="$(PluginDir)\Resources\%(RecursiveDir)" />
+    <Message Importance="high" Text="Deployed plugin to $(PluginDir)" />
   </Target>
 
 </Project>
