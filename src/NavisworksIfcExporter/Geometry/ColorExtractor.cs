@@ -101,6 +101,46 @@ namespace NavisworksIfcExporter.Geometry
             catch { return ""; }
         }
 
+        /// <summary>
+        /// Reads the element's material name from the Revit material attribute
+        /// (ClassName 'LcRevitMaterialProperties'), e.g. "@콘크리트". Returns null
+        /// if not found.
+        /// </summary>
+        public static string TryGetMaterialName(ComApi.InwOaPath path)
+        {
+            try
+            {
+                dynamic dPath = path;
+                dynamic nodes = TryGet(() => dPath.Nodes());
+                int count = ToInt(TryGet(() => nodes.Count));
+                // Leaf node carries the geometry's material; search from the leaf up.
+                for (int i = count; i >= 1; i--)
+                {
+                    dynamic node = Index(nodes, i);
+                    dynamic attrs = TryGet(() => node.Attributes());
+                    if (attrs == null)
+                        attrs = TryGet(() => node.GetAttributes());
+                    int ac = ToInt(TryGet(() => attrs.Count));
+                    for (int j = 1; j <= ac; j++)
+                    {
+                        dynamic a = Index(attrs, j);
+                        string cn = AsString(TryGet(() => a.ClassName));
+                        if (cn == "LcRevitMaterialProperties")
+                        {
+                            string name = AsString(TryGet(() => a.UserName));
+                            if (!string.IsNullOrWhiteSpace(name))
+                                return name.TrimStart('@').Trim();
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // ignore
+            }
+            return null;
+        }
+
         /// <summary>Returns RGBA (0..1) or null if no colour could be found.</summary>
         public static double[] TryGetColor(ComApi.InwOaPath path)
         {

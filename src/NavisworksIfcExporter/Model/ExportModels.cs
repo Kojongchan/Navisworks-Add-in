@@ -44,6 +44,9 @@ namespace NavisworksIfcExporter.Model
         /// <summary>Representative display colour as RGBA (0..1), or null if unknown.</summary>
         public double[] Color { get; set; }
 
+        /// <summary>Material name read from the Revit material attribute, or null.</summary>
+        public string MaterialName { get; set; }
+
         public int VertexCount => Coordinates.Count / 3;
         public int TriangleCount => TriangleIndices.Count / 3;
     }

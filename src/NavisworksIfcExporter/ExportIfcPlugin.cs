@@ -161,7 +161,8 @@ namespace NavisworksIfcExporter
                             element.Properties[category.Key] = category.Value;
                     }
 
-                    element.MaterialName = FindMaterialName(element.Properties);
+                    // Prefer the Revit material attribute; fall back to a property guess.
+                    element.MaterialName = mesh.MaterialName ?? FindMaterialName(element.Properties);
 
                     elements.Add(element);
                 }
