@@ -28,11 +28,14 @@ namespace NavisworksIfcExporter.Geometry
 
             var listener = new CallbackGeomListener();
             string materialName = null;
+            string category = null;
 
             foreach (ComApi.InwOaPath path in comSelection.Paths())
             {
                 if (materialName == null)
                     materialName = ColorExtractor.TryGetMaterialName(path);
+                if (category == null)
+                    category = ColorExtractor.TryGetCategory(path);
 
                 foreach (ComApi.InwOaFragment3 fragment in path.Fragments())
                 {
@@ -44,7 +47,10 @@ namespace NavisworksIfcExporter.Geometry
 
             MeshGeometry mesh = listener.ToMesh();
             if (mesh != null)
+            {
                 mesh.MaterialName = materialName;
+                mesh.Category = category;
+            }
 
             return mesh;
         }

@@ -10,6 +10,26 @@ namespace NavisworksIfcExporter.Model
         Ifc2x3
     }
 
+    /// <summary>IFC element type an item is exported as (mapped from Revit category).</summary>
+    public enum IfcMappedType
+    {
+        Proxy,
+        Wall,
+        Slab,
+        Beam,
+        Column,
+        Footing,
+        Pile,
+        Member,
+        Plate,
+        Railing,
+        Covering,
+        Roof,
+        Stair,
+        Door,
+        Window
+    }
+
     /// <summary>User-controlled options for a single export run.</summary>
     public class ExportOptions
     {
@@ -47,6 +67,9 @@ namespace NavisworksIfcExporter.Model
         /// <summary>Material name read from the Revit material attribute, or null.</summary>
         public string MaterialName { get; set; }
 
+        /// <summary>Revit category (e.g. "구조 기초"), used to map the IFC type. Null if unknown.</summary>
+        public string Category { get; set; }
+
         public int VertexCount => Coordinates.Count / 3;
         public int TriangleCount => TriangleIndices.Count / 3;
     }
@@ -69,6 +92,9 @@ namespace NavisworksIfcExporter.Model
 
         /// <summary>Material name if one could be found in the properties, else null.</summary>
         public string MaterialName { get; set; }
+
+        /// <summary>IFC element type this item is exported as.</summary>
+        public IfcMappedType IfcType { get; set; } = IfcMappedType.Proxy;
 
         public MeshGeometry Mesh { get; set; }
 

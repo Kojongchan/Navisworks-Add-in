@@ -141,6 +141,37 @@ namespace NavisworksIfcExporter.Geometry
             return null;
         }
 
+        /// <summary>
+        /// Returns the Revit category (e.g. "구조 기초"), read as the first
+        /// LcRevitCollection node in the path (Category comes before Family/Type).
+        /// Null if not a Revit model.
+        /// </summary>
+        public static string TryGetCategory(ComApi.InwOaPath path)
+        {
+            try
+            {
+                dynamic dPath = path;
+                dynamic nodes = TryGet(() => dPath.Nodes());
+                int count = ToInt(TryGet(() => nodes.Count));
+                for (int i = 1; i <= count; i++)
+                {
+                    dynamic node = Index(nodes, i);
+                    string cn = AsString(TryGet(() => node.ClassName));
+                    if (cn == "LcRevitCollection")
+                    {
+                        string name = AsString(TryGet(() => node.UserName));
+                        if (!string.IsNullOrWhiteSpace(name))
+                            return name.Trim();
+                    }
+                }
+            }
+            catch
+            {
+                // ignore
+            }
+            return null;
+        }
+
         /// <summary>Returns RGBA (0..1) or null if no colour could be found.</summary>
         public static double[] TryGetColor(ComApi.InwOaPath path)
         {

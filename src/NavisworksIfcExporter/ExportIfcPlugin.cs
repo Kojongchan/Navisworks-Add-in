@@ -168,6 +168,9 @@ namespace NavisworksIfcExporter
                         ? ColorForMaterial(element.MaterialName)
                         : null;
 
+                    // Auto-map the Revit category to an IFC element type.
+                    element.IfcType = MapCategoryToIfcType(mesh.Category);
+
                     elements.Add(element);
                 }
             }
@@ -192,6 +195,42 @@ namespace NavisworksIfcExporter
                 }
             }
             return null;
+        }
+
+        // Map a Revit category name (Korean or English) to an IFC element type,
+        // emulating Codemill's object mapping but automatically.
+        private static IfcMappedType MapCategoryToIfcType(string category)
+        {
+            if (string.IsNullOrWhiteSpace(category))
+                return IfcMappedType.Proxy;
+
+            string c = category.ToLowerInvariant();
+
+            bool Has(params string[] keys)
+            {
+                foreach (var k in keys)
+                    if (c.IndexOf(k, StringComparison.OrdinalIgnoreCase) >= 0)
+                        return true;
+                return false;
+            }
+
+            // Order matters: check more specific terms first.
+            if (Has("구조 기초", "기초", "footing", "foundation")) return IfcMappedType.Footing;
+            if (Has("말뚝", "파일", "pile")) return IfcMappedType.Pile;
+            if (Has("구조 기둥", "기둥", "column")) return IfcMappedType.Column;
+            if (Has("구조 프레임", "프레임", "거더", "beam", "framing", "girder")) return IfcMappedType.Beam;
+            if (Has("벽", "wall")) return IfcMappedType.Wall;
+            if (Has("바닥", "슬래브", "floor", "slab")) return IfcMappedType.Slab;
+            if (Has("지붕", "roof")) return IfcMappedType.Roof;
+            if (Has("계단", "stair")) return IfcMappedType.Stair;
+            if (Has("난간", "railing")) return IfcMappedType.Railing;
+            if (Has("천장", "ceiling", "covering")) return IfcMappedType.Covering;
+            if (Has("문", "door")) return IfcMappedType.Door;
+            if (Has("창", "window")) return IfcMappedType.Window;
+            if (Has("부재", "member")) return IfcMappedType.Member;
+            if (Has("plate")) return IfcMappedType.Plate;
+
+            return IfcMappedType.Proxy;
         }
 
         // Deterministic colour from a material name (same name -> same colour).

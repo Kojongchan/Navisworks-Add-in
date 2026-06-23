@@ -8,6 +8,7 @@ using Xbim.IO;
 
 using Xbim.Ifc2x3.Kernel;
 using Xbim.Ifc2x3.ProductExtension;
+using Xbim.Ifc2x3.SharedBldgElements;
 using Xbim.Ifc2x3.GeometricModelResource;
 using Xbim.Ifc2x3.TopologyResource;
 using Xbim.Ifc2x3.GeometryResource;
@@ -64,20 +65,18 @@ namespace NavisworksIfcExporter.Ifc
                         if (!element.HasGeometry)
                             continue;
 
-                        var proxy = model.Instances.New<IfcBuildingElementProxy>(e =>
-                        {
-                            e.Name = element.Name;
-                            e.ObjectPlacement = OriginPlacement(model);
-                            e.Representation = BuildShape(model, context, element.Mesh, scale, element.Color);
-                        });
+                        IfcElement product = CreateElement(model, element.IfcType);
+                        product.Name = element.Name;
+                        product.ObjectPlacement = OriginPlacement(model);
+                        product.Representation = BuildShape(model, context, element.Mesh, scale, element.Color);
 
-                        contained.RelatedElements.Add(proxy);
+                        contained.RelatedElements.Add(product);
 
                         if (options.ExportProperties)
-                            AddProperties(model, proxy, element);
+                            AddProperties(model, product, element);
 
                         if (!string.IsNullOrWhiteSpace(element.MaterialName))
-                            AssociateMaterial(model, proxy, element.MaterialName, materials);
+                            AssociateMaterial(model, product, element.MaterialName, materials);
                     }
 
                     txn.Commit();
@@ -198,7 +197,7 @@ namespace NavisworksIfcExporter.Ifc
         }
 
         private static void AssociateMaterial(
-            IfcStore model, IfcBuildingElementProxy proxy, string name, Dictionary<string, IfcMaterial> cache)
+            IfcStore model, IfcObjectDefinition target, string name, Dictionary<string, IfcMaterial> cache)
         {
             if (!cache.TryGetValue(name, out var material))
             {
@@ -209,8 +208,30 @@ namespace NavisworksIfcExporter.Ifc
             model.Instances.New<IfcRelAssociatesMaterial>(r =>
             {
                 r.RelatingMaterial = material;
-                r.RelatedObjects.Add(proxy);
+                r.RelatedObjects.Add(target);
             });
+        }
+
+        // Create the mapped IFC element. Footing/Pile live in a different IFC2x3
+        // module, so they fall back to a proxy here.
+        private static IfcElement CreateElement(IfcStore model, IfcMappedType type)
+        {
+            switch (type)
+            {
+                case IfcMappedType.Wall:     return model.Instances.New<IfcWall>();
+                case IfcMappedType.Slab:     return model.Instances.New<IfcSlab>();
+                case IfcMappedType.Beam:     return model.Instances.New<IfcBeam>();
+                case IfcMappedType.Column:   return model.Instances.New<IfcColumn>();
+                case IfcMappedType.Member:   return model.Instances.New<IfcMember>();
+                case IfcMappedType.Plate:    return model.Instances.New<IfcPlate>();
+                case IfcMappedType.Railing:  return model.Instances.New<IfcRailing>();
+                case IfcMappedType.Covering: return model.Instances.New<IfcCovering>();
+                case IfcMappedType.Roof:     return model.Instances.New<IfcRoof>();
+                case IfcMappedType.Stair:    return model.Instances.New<IfcStair>();
+                case IfcMappedType.Door:     return model.Instances.New<IfcDoor>();
+                case IfcMappedType.Window:   return model.Instances.New<IfcWindow>();
+                default:                     return model.Instances.New<IfcBuildingElementProxy>();
+            }
         }
 
         private static IfcLocalPlacement OriginPlacement(IfcStore model)
@@ -229,7 +250,7 @@ namespace NavisworksIfcExporter.Ifc
             });
         }
 
-        private static void AddProperties(IfcStore model, IfcBuildingElementProxy proxy, NavisElement element)
+        private static void AddProperties(IfcStore model, IfcObject target, NavisElement element)
         {
             foreach (var category in element.Properties)
             {
@@ -252,7 +273,7 @@ namespace NavisworksIfcExporter.Ifc
                 model.Instances.New<IfcRelDefinesByProperties>(r =>
                 {
                     r.RelatingPropertyDefinition = pset;
-                    r.RelatedObjects.Add(proxy);
+                    r.RelatedObjects.Add(target);
                 });
             }
         }
