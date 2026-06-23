@@ -151,8 +151,7 @@ namespace NavisworksIfcExporter
                     {
                         Name = string.IsNullOrEmpty(item.DisplayName) ? "Item" : item.DisplayName,
                         ClassName = item.ClassName,
-                        Mesh = mesh,
-                        Color = mesh.Color
+                        Mesh = mesh
                     };
 
                     if (options.ExportProperties)
@@ -163,6 +162,11 @@ namespace NavisworksIfcExporter
 
                     // Prefer the Revit material attribute; fall back to a property guess.
                     element.MaterialName = mesh.MaterialName ?? FindMaterialName(element.Properties);
+
+                    // Auto colour by material: same material name -> same colour.
+                    element.Color = element.MaterialName != null
+                        ? ColorForMaterial(element.MaterialName)
+                        : null;
 
                     elements.Add(element);
                 }
@@ -188,6 +192,37 @@ namespace NavisworksIfcExporter
                 }
             }
             return null;
+        }
+
+        // Deterministic colour from a material name (same name -> same colour).
+        // FNV-1a hash -> hue, then HSV with pleasant saturation/value.
+        private static double[] ColorForMaterial(string name)
+        {
+            uint hash = 2166136261;
+            foreach (char ch in name)
+            {
+                hash ^= ch;
+                hash *= 16777619;
+            }
+            double hue = hash % 360u;
+            return HsvToRgb(hue, 0.55, 0.85);
+        }
+
+        private static double[] HsvToRgb(double h, double s, double v)
+        {
+            double c = v * s;
+            double x = c * (1 - Math.Abs((h / 60.0) % 2 - 1));
+            double m = v - c;
+            double r = 0, g = 0, b = 0;
+
+            if (h < 60) { r = c; g = x; }
+            else if (h < 120) { r = x; g = c; }
+            else if (h < 180) { g = c; b = x; }
+            else if (h < 240) { g = x; b = c; }
+            else if (h < 300) { r = x; b = c; }
+            else { r = c; b = x; }
+
+            return new[] { r + m, g + m, b + m, 1.0 };
         }
     }
 }
